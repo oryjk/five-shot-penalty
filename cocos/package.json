@@ -1,0 +1,13 @@
+{
+  "name": "five-shot-penalty",
+  "version": "1.0.0",
+  "private": true,
+  "uuid": "2a05335d-fa3f-4ddf-a743-51780cccb768",
+  "creator": {
+    "version": "3.8.8"
+  },
+  "scripts": {
+    "test": "node --import ./tests/ts-loader.mjs --test tests/penalty.test.mjs"
+  },
+  "type": "module"
+}

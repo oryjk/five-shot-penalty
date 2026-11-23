@@ -1,0 +1,14 @@
+{
+  "number": 1,
+  "buildId": "1c001d510271",
+  "createdAt": "2026-11-22T04:00:50.557Z",
+  "note": "Created from the collector template",
+  "title": "五球点球挑战",
+  "bytes": 34273,
+  "files": {
+    "game.js": "9c50f6a865626c55d02809bfed0e1a80716aaac397c6223b983e9f2167034ce0",
+    "game.json": "0b1f68e01c6f84a9d25230f5f4cfafee9495c8c0922a60c5a01444020ebc72b3",
+    "assets/ASSETS.json": "cc73997d3b1206e3f86a8a9d2a763ed1d6b8d2451a91a2d231c365efafd7c168",
+    "assets/hero.svg": "a319a433e9954d337864418a4e99fd30fe080d6fc4cf1d959910a5edeede0b16"
+  }
+}

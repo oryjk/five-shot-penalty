@@ -1,0 +1,13 @@
+{
+  "ver": "4.0.24",
+  "importer": "typescript",
+  "imported": true,
+  "uuid": "4bd44efb-326b-4daf-a077-3b7b1c18d36a",
+  "files": [],
+  "subMetas": {},
+  "userData": {
+    "moduleId": "project:///assets/scripts/PenaltyGame.js",
+    "importerSettings": 7,
+    "simulateGlobals": []
+  }
+}

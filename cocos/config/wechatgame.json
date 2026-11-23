@@ -1,0 +1,28 @@
+{
+  "name": "五球点球挑战",
+  "buildPath": "project://build",
+  "includedModules": [
+    "base",
+    "gfx-webgl",
+    "gfx-webgl2",
+    "2d",
+    "graphics",
+    "ui",
+    "audio",
+    "legacy-pipeline"
+  ],
+  "mainBundleIsRemote": false,
+  "md5Cache": false,
+  "platform": "wechatgame",
+  "debug": false,
+  "outputName": "wx-minigame",
+  "packages": {
+    "wechatgame": {
+      "appid": "wx01473da279d914d8",
+      "orientation": "portrait",
+      "separateEngine": false,
+      "useHighPerformanceMode": false
+    }
+  },
+  "startScene": "48887a59-b4f1-43f6-b571-f328370bae39"
+}

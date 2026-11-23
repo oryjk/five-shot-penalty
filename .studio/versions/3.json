@@ -1,0 +1,14 @@
+{
+  "number": 3,
+  "buildId": "10d5b54c10c3",
+  "createdAt": "2026-11-22T04:25:25.992Z",
+  "note": "重绘夜场看台和球门，细化门将动作、瞄准力度与命中反馈",
+  "title": "五球点球挑战",
+  "bytes": 32517,
+  "files": {
+    "game.js": "d802b3bd9907b46675d4edd69dc0acc9b29dff403ec6e7d9f6b62f732bd33427",
+    "game.json": "d36b45de96d78279a935f6713898f7bdef888e048daa027d7e223a7fda67db17",
+    "assets/ASSETS.json": "cc73997d3b1206e3f86a8a9d2a763ed1d6b8d2451a91a2d231c365efafd7c168",
+    "assets/hero.svg": "a319a433e9954d337864418a4e99fd30fe080d6fc4cf1d959910a5edeede0b16"
+  }
+}

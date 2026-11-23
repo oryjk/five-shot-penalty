@@ -1,0 +1,42 @@
+{
+  "description": "五球点球挑战 — WeChat Mini Game exported by dsh-game-studio",
+  "setting": {
+    "urlCheck": true,
+    "es6": false,
+    "enhance": false,
+    "minified": true,
+    "uglifyFileName": false,
+    "enhanceWithBabel": false,
+    "babelSetting": {
+      "ignore": [],
+      "disablePlugins": [],
+      "outputPath": ""
+    }
+  },
+  "compileType": "game",
+  "libVersion": "3.5.8",
+  "appid": "wx7539b968091bbf14",
+  "projectname": "five-shot-penalty",
+  "condition": {},
+  "packOptions": {
+    "ignore": [
+      {
+        "value": ".studio-wx-manifest.json",
+        "type": "file"
+      },
+      {
+        "value": "WECHAT_SUBMISSION_DRAFT.md",
+        "type": "file"
+      },
+      {
+        "value": "**/*.md",
+        "type": "glob"
+      }
+    ],
+    "include": []
+  },
+  "editorSetting": {
+    "tabIndent": "insertSpaces",
+    "tabSize": 2
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "schema": 1,
+  "assets": {
+    "hero": {
+      "slot": "hero",
+      "file": "assets/hero.svg",
+      "source": "template",
+      "appliedAt": "2026-11-22T04:00:50.547Z",
+      "license": "MIT (bundled template art, original to dsh-game-studio)",
+      "sha256": "a319a433e9954d337864418a4e99fd30fe080d6fc4cf1d959910a5edeede0b16"
+    }
+  }
+}

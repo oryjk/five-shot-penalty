@@ -1,0 +1,638 @@
+/* 五球点球挑战 — DSH Game Studio 的单 Canvas 入口。 */
+(function () {
+  'use strict';
+
+  const canvas = document.getElementById('game');
+  const ctx = canvas.getContext('2d');
+  const title = (window.GAME && window.GAME.title) || '五球点球挑战';
+  const world = { w: 390, h: 760 };
+  const spot = { x: 195, y: 612 };
+  const goal = { left: 81, right: 309, top: 273, bottom: 368 };
+  const totalShots = 5;
+  const feedbackTime = 0.81;
+  const button = { x: 34, y: 666, w: 322, h: 49 };
+  const colors = {
+    night: '#081c22', white: '#effdf5', mint: '#a7f4bd',
+    muted: '#a3c2b6', deep: '#0b282b', orange: '#ffc47c', rose: '#ff9b9b',
+  };
+  const outcomes = {
+    goal: { text: '进球', color: colors.mint },
+    save: { text: '扑救', color: colors.orange },
+    miss: { text: '射偏', color: colors.rose },
+  };
+  const font = '"PingFang SC", "Microsoft YaHei", sans-serif';
+  const clamp = (value, low, high) => Math.min(high, Math.max(low, value));
+  const mix = (a, b, t) => a + (b - a) * t;
+
+  let phase = 'title';
+  let stage = 'ready';
+  let score = 0;
+  let attempts = 0;
+  let results = [];
+  let gesture = null;
+  let shot = null;
+  let keeperTime = 0;
+  let nextReadyIn = 0;
+  let preview = null;
+  let cssWidth, cssHeight, scale, dpr, offsetX, offsetY, hudY;
+  let lastTime;
+  let fps = 0;
+  let frameCount = 0;
+  let frameTime = 0;
+
+  function emitPhase() {
+    if (window.parent && window.parent !== window) {
+      window.parent.postMessage({ source: 'dsh-game-studio', type: 'state', phase, score }, '*');
+    }
+  }
+
+  function startRound() {
+    phase = 'playing';
+    stage = 'ready';
+    score = 0;
+    attempts = 0;
+    results = [];
+    gesture = null;
+    shot = null;
+    keeperTime = 0;
+    preview = null;
+    nextReadyIn = 0;
+    emitPhase();
+  }
+
+  function resize() {
+    cssWidth = window.innerWidth || canvas.clientWidth || world.w;
+    cssHeight = window.innerHeight || canvas.clientHeight || world.h;
+    dpr = Math.min(2, window.devicePixelRatio || 1);
+    canvas.width = Math.round(cssWidth * dpr);
+    canvas.height = Math.round(cssHeight * dpr);
+    canvas.style.width = cssWidth + 'px';
+    canvas.style.height = cssHeight + 'px';
+    canvas.style.touchAction = 'none';
+    scale = Math.min(cssWidth / world.w, cssHeight / world.h);
+    offsetX = (cssWidth - world.w * scale) / 2;
+    offsetY = (cssHeight - world.h * scale) / 2;
+    const safe = window.__wxSafeArea || (window.GAME && window.GAME.safeArea);
+    hudY = Math.max(64, ((safe && safe.topHudY || 88) - offsetY) / scale + 5);
+    cancelGesture();
+  }
+
+  function toWorld(event) {
+    const rect = canvas.getBoundingClientRect();
+    return {
+      x: (event.clientX - rect.left - offsetX) / scale,
+      y: (event.clientY - rect.top - offsetY) / scale,
+    };
+  }
+
+  function insideButton(p) {
+    return p.x >= button.x && p.x <= button.x + button.w &&
+      p.y >= button.y && p.y <= button.y + button.h;
+  }
+
+  function getAim(dx, dy) {
+    const distance = Math.hypot(dx, dy);
+    if (dy > -15 || distance < 20) return null;
+    const power = clamp((distance - 20) / 130, 0, 1);
+    return {
+      x: clamp(spot.x + dx / -dy * 208, -42, 432),
+      y: power < 0.15 ? mix(455, 370, power / 0.15) : mix(370, 284, (power - 0.15) / 0.85),
+      power,
+    };
+  }
+
+  function cancelGesture() {
+    gesture = null;
+    preview = null;
+  }
+
+  canvas.addEventListener('pointerdown', event => {
+    if (gesture || (event.button != null && event.button !== 0)) return;
+    const p = toWorld(event);
+    if (phase === 'title' || stage === 'final') {
+      if (!insideButton(p)) return;
+      gesture = { id: event.pointerId, start: p, button: true };
+    } else {
+      if (stage !== 'ready' || p.x < 10 || p.x > 380 || p.y < 462 || p.y > 725) return;
+      gesture = { id: event.pointerId, start: p, button: false };
+    }
+    if (canvas.setPointerCapture) {
+      try { canvas.setPointerCapture(event.pointerId); } catch (_) {}
+    }
+    event.preventDefault();
+  });
+
+  canvas.addEventListener('pointermove', event => {
+    if (!gesture || event.pointerId !== gesture.id || gesture.button) return;
+    const p = toWorld(event);
+    preview = getAim(p.x - gesture.start.x, p.y - gesture.start.y);
+    event.preventDefault();
+  });
+
+  canvas.addEventListener('pointerup', event => {
+    if (!gesture || event.pointerId !== gesture.id) return;
+    const p = toWorld(event);
+    const { start, button: pressedButton } = gesture;
+    cancelGesture();
+    if (pressedButton) {
+      if (insideButton(p) && Math.hypot(p.x - start.x, p.y - start.y) < 22) startRound();
+    } else {
+      const aim = getAim(p.x - start.x, p.y - start.y);
+      if (aim) kick(aim);
+    }
+    event.preventDefault();
+  });
+
+  function cancelPointer(event) {
+    if (gesture && event.pointerId === gesture.id) cancelGesture();
+  }
+  canvas.addEventListener('pointercancel', cancelPointer);
+  canvas.addEventListener('lostpointercapture', cancelPointer);
+  window.addEventListener('blur', cancelGesture);
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+      cancelGesture();
+      lastTime = undefined;
+    }
+  });
+  document.addEventListener('keydown', event => {
+    if (!event.repeat && event.key === 'Enter' && (phase === 'title' || stage === 'final')) startRound();
+  });
+
+  function keeperAtRest() {
+    return { x: spot.x + Math.sin(keeperTime * 2.15) * 39, y: 327, lean: 0, reach: 0 };
+  }
+
+  function kick(aim) {
+    if (stage !== 'ready' || phase !== 'playing' || attempts === totalShots) return;
+    const keeper = keeperAtRest();
+    const guess = aim.x + Math.sin(attempts * 2.4 + keeperTime * 1.5) * 19;
+    shot = {
+      ...aim,
+      age: 0,
+      duration: mix(0.63, 0.32, aim.power),
+      keeperStart: keeper.x,
+      keeperTarget: clamp(guess, goal.left + 25, goal.right - 25),
+      result: null,
+    };
+    attempts++;
+    stage = 'flight';
+  }
+
+  function divingKeeper() {
+    const travel = Math.max(0, Math.min(shot.age, shot.duration) - 0.105);
+    const direction = Math.sign(shot.keeperTarget - shot.keeperStart);
+    const movement = Math.min(Math.abs(shot.keeperTarget - shot.keeperStart), travel * 187);
+    const reach = clamp(travel / 0.20, 0, 1);
+    return {
+      x: shot.keeperStart + movement * direction,
+      y: 327 - clamp((327 - shot.y) * 0.30, 0, 14) * reach,
+      lean: direction * reach * 0.32,
+      reach,
+    };
+  }
+
+  function keeperTouchesBall(keeper) {
+    const dx = shot.x - keeper.x;
+    const dy = shot.y - (keeper.y - 8);
+    return Math.hypot(dx / 33, dy / 39) <= 1;
+  }
+
+  function insideGoal(aim) {
+    const radius = 8;
+    return aim.x - radius > goal.left && aim.x + radius < goal.right &&
+      aim.y - radius > goal.top && aim.y + radius < goal.bottom;
+  }
+
+  function resolveShot() {
+    shot.result = !insideGoal(shot) ? 'miss' : keeperTouchesBall(divingKeeper()) ? 'save' : 'goal';
+    score += Number(shot.result === 'goal');
+    results.push(shot.result);
+    stage = 'feedback';
+    nextReadyIn = feedbackTime;
+  }
+
+  function update(dt) {
+    if (phase !== 'playing') return;
+    if (stage === 'ready') {
+      keeperTime += dt;
+    } else if (stage === 'flight') {
+      shot.age += dt;
+      if (shot.age >= shot.duration) resolveShot();
+    } else if (stage === 'feedback') {
+      nextReadyIn -= dt;
+      if (nextReadyIn > 0) return;
+      if (attempts === totalShots) {
+        stage = 'final';
+        phase = score > 0 ? 'won' : 'lost';
+        emitPhase();
+      } else {
+        shot = null;
+        stage = 'ready';
+      }
+    }
+  }
+
+  function polygon(g, points, fill, stroke, width = 1) {
+    g.beginPath();
+    g.moveTo(points[0][0], points[0][1]);
+    for (let i = 1; i < points.length; i++) g.lineTo(points[i][0], points[i][1]);
+    g.closePath();
+    if (fill) { g.fillStyle = fill; g.fill(); }
+    if (stroke) { g.strokeStyle = stroke; g.lineWidth = width; g.stroke(); }
+  }
+
+  function line(g, points, color, width) {
+    g.strokeStyle = color;
+    g.lineWidth = width;
+    g.lineCap = 'round';
+    g.lineJoin = 'round';
+    g.beginPath();
+    g.moveTo(points[0][0], points[0][1]);
+    for (let i = 1; i < points.length; i++) g.lineTo(points[i][0], points[i][1]);
+    g.stroke();
+  }
+
+  function ellipse(g, x, y, rx, ry, fill, border, width = 1) {
+    g.beginPath();
+    g.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2);
+    if (fill) { g.fillStyle = fill; g.fill(); }
+    if (border) { g.strokeStyle = border; g.lineWidth = width; g.stroke(); }
+  }
+
+  function panel(x, y, w, h, r, fill, border) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+    ctx.fillStyle = fill;
+    ctx.fill();
+    if (border) {
+      ctx.strokeStyle = border;
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    }
+  }
+
+  function label(text, x, y, size, color, align = 'center', weight = 700) {
+    ctx.font = weight + ' ' + size + 'px ' + font;
+    ctx.textAlign = align;
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = color;
+    ctx.fillText(text, x, y);
+  }
+
+  function drawStadium() {
+    const glow = ctx.createLinearGradient(0, 175, 0, 750);
+    glow.addColorStop(0, colors.night);
+    glow.addColorStop(0.25, '#1a3b40');
+    glow.addColorStop(0.45, '#09272b');
+    glow.addColorStop(1, '#091f22');
+    ctx.fillStyle = glow;
+    ctx.fillRect(0, 181, world.w, 579);
+
+    for (const side of [0, 1]) {
+      ctx.save();
+      if (side) { ctx.translate(world.w, 0); ctx.scale(-1, 1); }
+      polygon(ctx, [[0, 242], [71, 223], [143, 244], [143, 267], [0, 297]], '#132e35');
+      line(ctx, [[0, 240], [70, 223], [143, 244]], '#356069', 1);
+      for (let row = 0; row < 4; row++) {
+        for (let i = 0; i < 15; i++) {
+          const y = 244 + row * 7 + Math.abs(6 - i) * 1.25 + (i % 3);
+          ellipse(ctx, 5 + i * 9, y, 1.3, 1.2, (i * 7 + row * 2) % 9 < 2 ? '#82b29a' : '#406064');
+        }
+      }
+      line(ctx, [[30, 249], [30, 202]], '#466b6b', 2);
+      const lamp = ctx.createRadialGradient(30, 205, 2, 30, 205, 47);
+      lamp.addColorStop(0, 'rgba(179,255,217,0.33)');
+      lamp.addColorStop(1, 'rgba(179,255,217,0)');
+      ellipse(ctx, 30, 205, 47, 47, lamp);
+      panel(13, 195, 34, 13, 3, '#b9dfca');
+      for (let i = 0; i < 4; i++) panel(16 + i * 8, 198, 5, 7, 1, '#ecffe9');
+      ctx.restore();
+    }
+
+    const turf = ctx.createLinearGradient(0, 267, 0, 748);
+    turf.addColorStop(0, '#1f604c');
+    turf.addColorStop(0.55, '#195542');
+    turf.addColorStop(1, '#10382f');
+    ctx.save();
+    polygon(ctx, [[60, 269], [330, 269], [486, 752], [-96, 752]], null);
+    ctx.clip();
+    ctx.fillStyle = turf;
+    ctx.fillRect(0, 269, world.w, 483);
+    const bands = [285, 308, 341, 383, 434, 496, 570, 654, 747];
+    for (let i = 0; i < bands.length - 1; i += 2) {
+      ctx.fillStyle = 'rgba(151,237,183,0.065)';
+      ctx.fillRect(0, bands[i], world.w, bands[i + 1] - bands[i]);
+    }
+    // Deterministic pitch texture stays still between frames.
+    ctx.fillStyle = 'rgba(170,235,194,0.11)';
+    for (let i = 0; i < 280; i++) {
+      const y = 278 + (i * 61) % 454;
+      ctx.fillRect((i * 157) % 390, y, y > 490 ? 2 : 1, 1);
+    }
+    const marking = 'rgba(197,250,219,0.63)';
+    line(ctx, [[-80, 720], [60, 270], [330, 270], [470, 720]], marking, 2);
+    polygon(ctx, [[61, 367], [329, 367], [369, 478], [21, 478]], null, marking, 2);
+    polygon(ctx, [[105, 367], [285, 367], [301, 413], [89, 413]], null, marking, 1.5);
+    ctx.beginPath();
+    ctx.moveTo(121, 478);
+    ctx.quadraticCurveTo(195, 535, 269, 478);
+    ctx.strokeStyle = marking;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ellipse(ctx, spot.x, spot.y + 6, 6, 3, '#a7d7af');
+    ctx.restore();
+    const fade = ctx.createLinearGradient(0, 621, 0, 752);
+    fade.addColorStop(0, 'rgba(8,28,34,0)');
+    fade.addColorStop(1, colors.night);
+    ctx.fillStyle = fade;
+    ctx.fillRect(0, 621, world.w, 139);
+  }
+
+  function drawNet() {
+    const { left, right, top, bottom } = goal;
+    const rear = { left: left + 15, right: right - 15, top: top + 13, bottom: bottom - 11 };
+    const ringing = shot && shot.result === 'goal' ? Math.max(0, nextReadyIn - 0.5) * 3 : 0;
+    ellipse(ctx, 195, bottom + 5, 128, 12, 'rgba(3,20,23,0.39)');
+    polygon(ctx, [[left, top], [right, top], [right, bottom], [left, bottom]], '#143839');
+    polygon(ctx, [[rear.left, rear.top], [rear.right, rear.top], [rear.right, rear.bottom], [rear.left, rear.bottom]], '#173d3d');
+    const mesh = ringing > 0 ? 'rgba(169,250,191,0.55)' : 'rgba(187,229,220,0.25)';
+    for (let i = 0; i <= 14; i++) {
+      const t = i / 14;
+      const x = mix(left, right, t);
+      const backX = mix(rear.left, rear.right, t);
+      line(ctx, [[x, top], [backX, rear.top], [backX + Math.sin(i * 1.5) * ringing * 4, rear.bottom], [x, bottom]], mesh, 0.8);
+    }
+    for (let i = 0; i <= 6; i++) {
+      const t = i / 6;
+      const y = mix(top, bottom, t);
+      const backY = mix(rear.top, rear.bottom, t);
+      line(ctx, [[left, y], [rear.left, backY], [rear.right, backY], [right, y]], mesh, 0.8);
+    }
+    line(ctx, [[left, bottom], [right, bottom]], '#b5e4c4', 2);
+  }
+
+  function drawGoalFrame() {
+    const { left, right, top, bottom } = goal;
+    line(ctx, [[left + 2, bottom], [left + 2, top + 2], [right + 2, top + 2], [right + 2, bottom]], '#143439', 10);
+    line(ctx, [[left, bottom], [left, top], [right, top], [right, bottom]], '#d9efdf', 6);
+    line(ctx, [[left - 1, bottom - 1], [left - 1, top - 1], [right, top - 1]], '#f4fff3', 2);
+  }
+
+  function paintKeeper(g, reach) {
+    line(g, [[-8, 9], [-9 - reach * 3, 21], [-15, 26]], '#10262d', 9);
+    line(g, [[8, 9], [11 + reach * 3, 20], [16, 25]], '#10262d', 9);
+    line(g, [[-18, 26], [-12, 26]], '#dbf7df', 3);
+    line(g, [[13, 25], [19, 25]], '#dbf7df', 3);
+    const spread = 6 * reach;
+    line(g, [[-10, -13], [-19, -6], [-25 - spread, -13]], '#e8904e', 7);
+    line(g, [[10, -13], [19, -6], [25 + spread, -13]], '#e8904e', 7);
+    ellipse(g, -26 - spread, -14, 5.5, 5.5, '#e6ffe2', '#174148', 1.5);
+    ellipse(g, 26 + spread, -14, 5.5, 5.5, '#e6ffe2', '#174148', 1.5);
+    polygon(g, [[-11, -18], [11, -18], [15, -9], [9, 10], [-9, 10], [-15, -9]], '#ffbb6c', '#ae633e', 1.4);
+    line(g, [[-8, 3], [8, 3]], '#ffe1a7', 2);
+    ellipse(g, 0, -25, 8.5, 10, '#dca582', '#1a292f', 1.4);
+    polygon(g, [[-8, -26], [-6, -34], [5, -35], [9, -29], [5, -27], [-3, -30]], '#263037');
+  }
+
+  function drawKeeper() {
+    const keeper = shot ? divingKeeper() : keeperAtRest();
+    ellipse(ctx, keeper.x, 354, 22, 5, 'rgba(4,21,22,0.47)');
+    ctx.save();
+    ctx.translate(keeper.x, keeper.y);
+    ctx.rotate(keeper.lean);
+    paintKeeper(ctx, keeper.reach);
+    ctx.restore();
+  }
+
+  const ballPanels = Array.from({ length: 5 }, (_, i) => {
+    const angle = i * Math.PI * 2 / 5 - Math.PI / 2;
+    return [Math.cos(angle), Math.sin(angle)];
+  });
+
+  function paintBall(g, radius) {
+    const shading = g.createRadialGradient(-radius * 0.31, -radius * 0.43, 1, 0, 0, radius * 1.04);
+    shading.addColorStop(0, '#ffffff');
+    shading.addColorStop(0.71, '#f3fff7');
+    shading.addColorStop(1, '#9cbab3');
+    ellipse(g, 0, 0, radius, radius, shading, '#133036', radius * 0.075);
+    g.save();
+    g.clip();
+    for (const [x, y] of ballPanels) {
+      line(g, [[x * radius * 0.35, y * radius * 0.35], [x * radius, y * radius]], '#819793', radius * 0.06);
+      ellipse(g, x * radius * 0.99, y * radius * 0.99, radius * 0.22, radius * 0.25, '#19353a');
+    }
+    polygon(g, ballPanels.map(([x, y]) => [x * radius * 0.37, y * radius * 0.37]), '#17353a');
+    g.restore();
+  }
+
+  function ballAt(aim, progress) {
+    return {
+      x: mix(spot.x, aim.x, progress),
+      y: mix(spot.y, aim.y, progress) - Math.sin(progress * Math.PI) * (12 + aim.power * 14),
+      radius: mix(17, 8, progress),
+    };
+  }
+
+  function drawAim() {
+    if (!preview) return;
+    const color = insideGoal(preview) ? colors.mint : colors.orange;
+    for (let i = 2; i <= 10; i++) {
+      const p = ballAt(preview, i / 11);
+      ctx.globalAlpha = 0.35 + i * 0.06;
+      ellipse(ctx, p.x, p.y, 2 + i * 0.13, 2 + i * 0.13, color);
+    }
+    ctx.globalAlpha = 1;
+    ellipse(ctx, preview.x, preview.y, 10, 10, null, color, 1.5);
+    ellipse(ctx, preview.x, preview.y, 2, 2, color);
+  }
+
+  function drawBall() {
+    if (!shot) {
+      ellipse(ctx, spot.x, spot.y + 13, 23, 7, 'rgba(4,20,24,0.38)');
+      if (phase === 'playing') ellipse(ctx, spot.x, spot.y, 31, 31, null, 'rgba(169,249,189,0.61)', 1.3);
+    }
+    let p = { ...spot, radius: 17 };
+    let rotation = 0.4;
+    if (shot) {
+      const t = clamp(shot.age / shot.duration, 0, 1);
+      const flight = 1 - Math.pow(1 - t, 1.23);
+      p = ballAt(shot, flight);
+      rotation += flight * (3 + shot.power * 5);
+      if (shot.result) {
+        const rebound = clamp((feedbackTime - nextReadyIn) / 0.4, 0, 1);
+        if (shot.result === 'save') {
+          p.x += Math.sign(shot.x - spot.x || -1) * 31 * rebound;
+          p.y += 38 * rebound;
+        } else if (shot.result === 'goal') {
+          p.y += 8 * rebound;
+          p.radius -= 1.6 * rebound;
+        } else {
+          p.x += (shot.x - spot.x) * 0.18 * rebound;
+          p.y += 13 * rebound;
+        }
+      } else {
+        for (let i = 3; i > 0; i--) {
+          const trail = ballAt(shot, Math.max(0, flight - i * 0.045));
+          ellipse(ctx, trail.x, trail.y, trail.radius * 0.66, trail.radius * 0.66,
+            'rgba(221,255,222,' + (4 - i) * 0.085 + ')');
+        }
+      }
+    }
+    ctx.save();
+    ctx.translate(p.x, p.y);
+    ctx.rotate(rotation);
+    paintBall(ctx, p.radius);
+    ctx.restore();
+  }
+
+  function mark(x, y, index) {
+    const result = outcomes[results[index]];
+    const active = phase === 'playing' && index === results.length;
+    ellipse(ctx, x, y, 13, 13, result ? result.color : colors.deep,
+      result ? null : active ? colors.mint : '#47675f', 1.4);
+    if (results[index] === 'goal') {
+      line(ctx, [[x - 5, y], [x - 1, y + 4], [x + 6, y - 4]], colors.night, 2);
+    } else if (results[index] === 'save') {
+      panel(x - 4.5, y - 4.5, 9, 9, 2, colors.night);
+    } else if (results[index] === 'miss') {
+      line(ctx, [[x - 3.5, y - 3.5], [x + 3.5, y + 3.5]], colors.night, 1.8);
+      line(ctx, [[x - 3.5, y + 3.5], [x + 3.5, y - 3.5]], colors.night, 1.8);
+    } else {
+      label(String(index + 1), x, y + 0.5, 12, active ? colors.mint : colors.muted);
+    }
+  }
+
+  function drawHeader() {
+    label(title, 25, hudY + 22, 32, colors.white, 'left');
+    line(ctx, [[25, hudY + 50], [365, hudY + 50]], '#35534e', 1);
+    for (let i = 0; i < totalShots; i++) mark(38 + i * 34, hudY + 78, i);
+    label('进球 ' + score + ' / 5', 365, hudY + 78, 18, colors.mint, 'right');
+  }
+
+  function drawButton(text) {
+    const { x, y, w, h } = button;
+    panel(x, y + 4, w, h, 12, '#31634f');
+    panel(x, y, w, h, 12, gesture && gesture.button ? '#7fd29e' : colors.mint);
+    label(text, x + w / 2, y + h / 2, 20, colors.night);
+    line(ctx, [[x + w - 34, y + 19], [x + w - 28, y + 25], [x + w - 34, y + 31]], colors.night, 1.8);
+  }
+
+  function drawFooter() {
+    if (phase === 'title') {
+      label('向上滑动射门 · 每局五球', 195, 643, 15, colors.white, 'center', 400);
+      drawButton('开始挑战');
+      return;
+    }
+    if (stage !== 'ready') return;
+    if (gesture) {
+      label('力度', 66, 690, 14, colors.muted, 'left');
+      panel(109, 686, 213, 8, 4, '#365d54');
+      if (preview && preview.power > 0) {
+        const width = Math.max(8, 213 * preview.power);
+        panel(109, 686, width, 8, 4, colors.mint);
+      }
+    } else {
+      label('向球门方向滑动', 195, 681, 17, colors.white);
+      label('滑得越远，射门越有力', 195, 708, 13, colors.muted, 'center', 400);
+    }
+  }
+
+  function drawResult() {
+    if (stage === 'feedback') {
+      const result = outcomes[shot.result];
+      panel(126, 432, 138, 53, 14, 'rgba(12,40,45,0.91)', result.color);
+      label(result.text, 195, 459, 24, result.color);
+    }
+    if (stage === 'final') {
+      ctx.fillStyle = 'rgba(6,21,26,0.56)';
+      ctx.fillRect(0, 188, world.w, 572);
+      panel(17, 398, 356, 332, 20, '#0d292d', '#54766b');
+      label('本局结束', 195, 433, 19, colors.white);
+      label('总进球', 195, 470, 14, colors.muted, 'center', 400);
+      label(score + ' / 5', 195, 518, 49, colors.mint);
+      line(ctx, [[41, 557], [349, 557]], '#35534e', 1);
+      results.forEach((result, i) => {
+        const x = 67 + i * 64;
+        mark(x, 587, i);
+        label(outcomes[result].text, x, 621, 13, outcomes[result].color, 'center', 400);
+      });
+      drawButton('再来一局');
+    }
+  }
+
+  function render() {
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.fillStyle = colors.night;
+    ctx.fillRect(0, 0, cssWidth, cssHeight);
+    ctx.setTransform(dpr * scale, 0, 0, dpr * scale, dpr * offsetX, dpr * offsetY);
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(0, 0, world.w, world.h);
+    ctx.clip();
+    drawStadium();
+    drawNet();
+    drawKeeper();
+    drawGoalFrame();
+    drawAim();
+    drawBall();
+    drawHeader();
+    drawFooter();
+    drawResult();
+    ctx.restore();
+  }
+
+  function frame(now) {
+    const dt = lastTime === undefined ? 0 : clamp((now - lastTime) / 1000, 0, 0.05);
+    lastTime = now;
+    frameCount++;
+    frameTime += dt;
+    if (frameTime >= 0.5) {
+      fps = Math.round(frameCount / frameTime);
+      frameCount = 0;
+      frameTime = 0;
+    }
+    update(dt);
+    render();
+    requestAnimationFrame(frame);
+  }
+
+  window.__gameState = () => ({
+    phase, stage, score, attempts, results: results.slice(), fps,
+    hearts: totalShots - attempts, hero: { ...spot }, pickups: [], enemies: [], world: { ...world },
+  });
+
+  window.__autoplay = () => {
+    if (phase !== 'playing' || stage !== 'ready' || gesture) return;
+    const swipes = [[-50, -132], [0, -150], [108, -50], [42, -123], [-52, -138]];
+    kick(getAim(...swipes[attempts]));
+  };
+
+  window.__renderSlots = (size = 256) => {
+    function draw(drawer) {
+      const thumb = document.createElement('canvas');
+      thumb.width = thumb.height = size;
+      const g = thumb.getContext('2d');
+      g.translate(size / 2, size / 2);
+      drawer(g);
+      return thumb.toDataURL('image/png');
+    }
+    return {
+      足球: draw(g => paintBall(g, size * 0.38)),
+      门将: draw(g => {
+        g.scale(size / 87, size / 87);
+        g.translate(0, 4);
+        paintKeeper(g, 0);
+      }),
+    };
+  };
+
+  resize();
+  window.addEventListener('resize', resize);
+  requestAnimationFrame(frame);
+})();

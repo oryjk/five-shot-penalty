@@ -1,0 +1,8 @@
+{
+  "schema": 1,
+  "template": "collector",
+  "title": "五球点球挑战",
+  "slots": {},
+  "rules": {},
+  "style": "原创夜场球场，深青色草坪、薄荷绿标记和暖橙色门将，全部使用 Canvas 图形"
+}

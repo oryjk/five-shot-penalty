@@ -1,0 +1,14 @@
+{
+  "number": 2,
+  "buildId": "ea5efa558074",
+  "createdAt": "2026-11-22T04:05:38.433Z",
+  "note": "原创竖屏点球，五球结算，松手射门与微信胶囊安全区",
+  "title": "五球点球挑战",
+  "bytes": 23750,
+  "files": {
+    "game.js": "d9d223c211074579b8371a3b71d3bc09020684ffc89a9499bd146c8ac6c0f695",
+    "game.json": "d36b45de96d78279a935f6713898f7bdef888e048daa027d7e223a7fda67db17",
+    "assets/ASSETS.json": "cc73997d3b1206e3f86a8a9d2a763ed1d6b8d2451a91a2d231c365efafd7c168",
+    "assets/hero.svg": "a319a433e9954d337864418a4e99fd30fe080d6fc4cf1d959910a5edeede0b16"
+  }
+}

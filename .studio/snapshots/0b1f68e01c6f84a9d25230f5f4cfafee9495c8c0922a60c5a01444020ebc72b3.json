@@ -1,0 +1,35 @@
+{
+  "schema": 1,
+  "template": "collector",
+  "title": "五球点球挑战",
+  "slots": {
+    "hero": {
+      "file": "assets/hero.svg",
+      "label": "足球",
+      "size": [
+        256,
+        256
+      ],
+      "transparent": true
+    }
+  },
+  "rules": {
+    "duration": 60,
+    "hearts": 3,
+    "heroSpeed": 320,
+    "enemySpeed": 120,
+    "enemySpeedGrowth": 3,
+    "enemySpawnEvery": 4,
+    "maxEnemies": 8,
+    "maxPickups": 5,
+    "heroSize": 76,
+    "enemySize": 68,
+    "pickupSize": 44,
+    "shield": {
+      "enabled": false,
+      "every": 3,
+      "seconds": 4
+    }
+  },
+  "style": "原创极简 Canvas 图形，深青色夜场球场，薄荷绿与暖橙色点缀"
+}

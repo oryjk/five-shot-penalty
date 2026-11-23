@@ -1,0 +1,43 @@
+{
+  "schema": 1,
+  "project": "/Users/carlwang/game_projects/five-shot-penalty",
+  "title": "五球点球挑战",
+  "orientation": "portrait",
+  "build": {
+    "artifact": "/Users/carlwang/game_projects/five-shot-penalty/dist/index.html",
+    "buildId": "10d5b54c10c3",
+    "bytes": 32517,
+    "title": "五球点球挑战",
+    "builtAt": "2026-11-22T04:25:25.987Z"
+  },
+  "slots": {},
+  "spend": {
+    "openaiImages": 0,
+    "openaiUsd": 0,
+    "codexImages": 0,
+    "codexTokens": 0
+  },
+  "jobs": [],
+  "versions": [
+    {
+      "number": 3,
+      "note": "重绘夜场看台和球门，细化门将动作、瞄准力度与命中反馈",
+      "createdAt": "2026-11-22T04:25:25.992Z",
+      "buildId": "10d5b54c10c3"
+    },
+    {
+      "number": 2,
+      "note": "原创竖屏点球，五球结算，松手射门与微信胶囊安全区",
+      "createdAt": "2026-11-22T04:05:38.433Z",
+      "buildId": "ea5efa558074"
+    },
+    {
+      "number": 1,
+      "note": "Created from the collector template",
+      "createdAt": "2026-11-22T04:00:50.557Z",
+      "buildId": "1c001d510271"
+    }
+  ],
+  "share": null,
+  "updatedAt": "2026-11-22T04:25:25.994Z"
+}
