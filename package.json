@@ -1,0 +1,15 @@
+{
+  "name": "five-shot-penalty-release",
+  "private": true,
+  "engines": {
+    "node": ">=22.18.0"
+  },
+  "scripts": {
+    "wx:build": "npm test --prefix cocos && node scripts/wechat-release.mjs build",
+    "wx:verify": "node scripts/wechat-release.mjs verify",
+    "wx:release": "node scripts/wechat-release.mjs release"
+  },
+  "devDependencies": {
+    "miniprogram-ci": "2.1.31"
+  }
+}

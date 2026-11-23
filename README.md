@@ -20,15 +20,27 @@
 ## 本地验证与构建发布
 
 ```sh
-# 1. 运行核心物理、门将 AI、成长与广告单元测试（Node.js 22.18+）
-cd cocos
-npm test
+# 运行核心物理、门将 AI、成长与广告单元测试（Node.js 22.18+）
+npm test --prefix cocos
 
-# 2. 构建 Web Mobile 预览与微信小游戏包
+# 构建 Web Mobile 预览
 creator="$HOME/Applications/CocosCreator/3.8.8/CocosCreator.app/Contents/MacOS/CocosCreator"
-"$creator" --project "$PWD" --build "configPath=$PWD/config/web-mobile.json"
-"$creator" --project "$PWD" --build "configPath=$PWD/config/wechatgame.json"
-rsync -a --delete build/wx-minigame/ ../wx-minigame/
+"$creator" --project "$PWD/cocos" --build "configPath=$PWD/cocos/config/web-mobile.json"
 ```
 
-将项目根目录的 `wx-minigame/` 导入微信开发者工具即可预览与真机测试。
+### 上传微信开发版本
+
+1. 在装有 Cocos Creator 3.8.8 的 Mac 上更新 `cocos/package.json` 的 `version`，然后从仓库根目录运行 `npm run wx:build`。脚本运行游戏测试，重新生成 `wx-minigame/` 和 `wx-build.json`。如果 Creator 安装在其他位置，用 `COCOS_CREATOR` 指定可执行文件。
+2. 将源码、`wx-minigame/` 和 `wx-build.json` 一起提交并推送到 `origin/main`。也可以先将 `wx-minigame/` 导入微信开发者工具进行真机测试。
+3. 在 `local233` 同步并运行上传脚本。首次安装或依赖锁文件变更后运行 `npm ci`。
+
+```sh
+ssh local233 'cd ~/projects/five-shot-penalty && git pull --ff-only && npm ci --no-audit --no-fund && npm run wx:release -- --dry-run'
+ssh local233 'cd ~/projects/five-shot-penalty && git pull --ff-only && npm run wx:release -- --desc "本次变更说明"'
+```
+
+`npm run wx:verify` 校验本地构建包。`wx:release` 还会检查当前工作区干净且 `HEAD` 与远端 `main` 完全一致，再从该提交提取 `wx-minigame/`。`--dry-run` 会检查私钥并初始化微信 CI 项目。
+
+上传使用 `robot=1`，体验版专用槽位可传 `--robot 2`。上传结果出现在微信公众平台的「版本管理 → 开发版本」。首次使用槽位 2 时，可在后台选为体验版。提审和正式发布在微信公众平台完成。
+
+`local233` 的私钥存放在 `~/.config/five-shot-penalty/private.<appid>.key`。本机也可使用项目根目录下的同名文件，或通过 `MINI_CI_PRIVATE_KEY_PATH` 指定路径。微信代码上传 IP 白名单需允许 `local233` 的出口 IP。
